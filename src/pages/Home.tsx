@@ -12,14 +12,25 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard";
-import { PromoBanner } from "@/components/PromoBanner";
 import { fetchFeaturedProducts, getCategories } from "@/services/products";
+import { fetchPromoImages } from "@/services/settings";
 import { useFilters } from "@/store/filters";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const [heroSlides, setHeroSlides] = useState<{ url: string }[]>([]);
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+
+  const heroBackgroundStyle = {
+    backgroundImage: `linear-gradient(to right, hsl(0 0% 7% / 0.92), hsl(0 0% 7% / 0.78)), url('${
+      heroSlides[heroSlideIndex]?.url ?? "/hero-achetez-mieux.png"
+    }')`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  } as const;
+
   const [products, setProducts] = useState<Product[] | null>(null);
   const f = useFilters();
   const navigate = useNavigate();
@@ -27,6 +38,24 @@ const Home = () => {
   useEffect(() => {
     fetchFeaturedProducts(12).then(setProducts);
   }, []);
+
+  useEffect(() => {
+    fetchPromoImages().then((data) => {
+      if (!data) return;
+      const slides = [data.url, data.url_2].filter(Boolean).map((url) => ({ url })) as { url: string }[];
+      if (slides.length > 0) {
+        setHeroSlides(slides);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return;
+    const t = window.setInterval(() => {
+      setHeroSlideIndex((i) => (i + 1) % heroSlides.length);
+    }, 5000);
+    return () => window.clearInterval(t);
+  }, [heroSlides.length]);
 
   const categories = useMemo(() => getCategories(products ?? []), [products]);
 
@@ -47,7 +76,10 @@ const Home = () => {
       {/* ══════════════════════════════════════════════════════════════════
           SECTION HERO — desktop uniquement
       ══════════════════════════════════════════════════════════════════ */}
-      <section className="hidden md:block relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
+      <section
+        className="hidden md:block relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background"
+        style={heroBackgroundStyle}
+      >
         <div className="pointer-events-none absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-accent/5 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl" />
 
@@ -110,11 +142,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          BANNIÈRE PROMO (Firestore app_settings > promo_image)
-      ══════════════════════════════════════════════════════════════════ */}
-      <PromoBanner />
 
       {/* ══════════════════════════════════════════════════════════════════
           CHIPS CATÉGORIES — scrollables horizontalement

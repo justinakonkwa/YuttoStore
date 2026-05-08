@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/store/cart";
 import { useAuth } from "@/store/auth";
-import { CreditCard, Wallet, Apple, ChevronLeft, Check } from "lucide-react";
+import { CreditCard, Wallet, ChevronLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { toast } from "sonner";
+import { checkTransaction, makeCardPayment, makePayment } from "@/services/flexpay";
+
+type PaymentStatus = "pending" | "success" | "failed";
 
 const Checkout = () => {
   const items = useCart((s) => s.items);
@@ -13,11 +16,80 @@ const Checkout = () => {
   const clear = useCart((s) => s.clear);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [pay, setPay] = useState<"card" | "apple" | "paypal">("card");
+  const [pay, setPay] = useState<"card" | "mobileMoney">("mobileMoney");
   const [done, setDone] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Paiement initié. Vérification en cours...");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [isPolling, setIsPolling] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
+  const pollingRef = useRef<number | null>(null);
 
   const shipping = subtotal >= 100 ? 0 : 9.99;
   const total = subtotal + shipping;
+
+  const stopPolling = () => {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setIsPolling(false);
+  };
+
+  const isFailureMessage = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("n'a pas réussi") ||
+      normalized.includes("na pas reussi") ||
+      /(failed|échoué|echec|annul|refus|declin|expire|invalid|error|pas réussi|pas reussi)/i.test(
+        message
+      )
+    );
+  };
+
+  const isSuccessMessage = (message: string) => {
+    if (isFailureMessage(message)) return false;
+    return /(success|réussi|reussi|effectu|validé|valide|payé|paye)/i.test(message);
+  };
+
+  const pollTransactionStatus = async (currentOrderNumber: string) => {
+    try {
+      const message = await checkTransaction(currentOrderNumber);
+      if (!message) return;
+
+      setStatusMessage(message);
+
+      if (isSuccessMessage(message)) {
+        setPaymentStatus("success");
+        stopPolling();
+        setIsStatusModalOpen(false);
+        setDone(true);
+        clear();
+        toast.success("Paiement confirmé. Commande validée.");
+        return;
+      }
+
+      if (isFailureMessage(message)) {
+        setPaymentStatus("failed");
+        stopPolling();
+        toast.error(message);
+      }
+    } catch {
+      // On continue le polling, erreur réseau temporaire possible.
+    }
+  };
+
+  const startPolling = (currentOrderNumber: string) => {
+    stopPolling();
+    setIsPolling(true);
+    pollingRef.current = window.setInterval(() => {
+      void pollTransactionStatus(currentOrderNumber);
+    }, 5000);
+  };
+
+  useEffect(() => stopPolling, []);
 
   if (items.length === 0 && !done) {
     return (
@@ -33,11 +105,59 @@ const Checkout = () => {
     );
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setDone(true);
-    clear();
-    toast.success("Commande passée — confirmation envoyée.");
+
+    const reference = `ORDER-${Date.now()}`;
+    const description = `Commande Cart Luxe (${items.length} article${items.length > 1 ? "s" : ""})`;
+
+    setIsProcessing(true);
+
+    try {
+      if (pay === "card") {
+        const redirectUrl = await makeCardPayment({
+          amount: total.toFixed(2),
+          reference,
+          description,
+        });
+
+        if (!redirectUrl) {
+          throw new Error("Impossible de créer le paiement carte.");
+        }
+
+        window.open(redirectUrl, "_blank", "noopener,noreferrer");
+        toast.success("Paiement initié. Finalisez le paiement dans la page ouverte.");
+      } else if (pay === "mobileMoney") {
+        if (!phone.trim()) {
+          throw new Error("Veuillez renseigner votre numéro de téléphone.");
+        }
+
+        const orderNumber = await makePayment({
+          amount: total.toFixed(2),
+          phone: phone.trim(),
+          reference,
+          description,
+        });
+
+        if (!orderNumber) {
+          throw new Error("La création du paiement a échoué.");
+        }
+
+        setOrderNumber(orderNumber);
+        setPaymentStatus("pending");
+        setStatusMessage("Paiement initié. Vérification en cours...");
+        setIsStatusModalOpen(true);
+        void pollTransactionStatus(orderNumber);
+        startPolling(orderNumber);
+      } else {
+        throw new Error("Mode de paiement non pris en charge.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Le paiement a échoué.";
+      toast.error(message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (done) {
@@ -80,7 +200,13 @@ const Checkout = () => {
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Nom complet" required defaultValue={user?.displayName ?? ""} />
               <Field label="Adresse e-mail" type="email" required defaultValue={user?.email ?? ""} />
-              <Field label="Téléphone" type="tel" required />
+              <Field
+                label="Téléphone"
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
           </Section>
 
@@ -88,26 +214,20 @@ const Checkout = () => {
           <Section title="Adresse de livraison">
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Adresse ligne 1" className="sm:col-span-2" required />
-              <Field label="Adresse ligne 2 (optionnel)" className="sm:col-span-2" />
-              <Field label="Ville" required />
-              <Field label="Code postal" required />
-              <Field label="Pays" defaultValue="États-Unis" required />
-              <Field label="État / Région" required />
             </div>
           </Section>
 
           {/* Paiement */}
           <Section title="Mode de paiement">
-            <div className="grid sm:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               {[
                 { id: "card", label: "Carte bancaire", Icon: CreditCard },
-                { id: "apple", label: "Apple Pay", Icon: Apple },
-                { id: "paypal", label: "PayPal", Icon: Wallet },
+                { id: "mobileMoney", label: "Mobile Money", Icon: Wallet },
               ].map((m) => (
                 <button
                   type="button"
                   key={m.id}
-                  onClick={() => setPay(m.id as any)}
+                  onClick={() => setPay(m.id as "card" | "mobileMoney")}
                   className={cn(
                     "flex items-center gap-3 px-5 py-4 rounded-xl border transition-smooth",
                     pay === m.id
@@ -120,6 +240,13 @@ const Checkout = () => {
                 </button>
               ))}
             </div>
+
+            {pay === "mobileMoney" && (
+              <p className="mt-4 text-sm text-foreground/65 animate-fade-up">
+                Le numéro de téléphone renseigné dans vos coordonnées sera utilisé pour le paiement
+                Mobile Money.
+              </p>
+            )}
 
             {pay === "card" && (
               <div className="mt-6 grid sm:grid-cols-2 gap-4 animate-fade-up">
@@ -179,15 +306,98 @@ const Checkout = () => {
           </div>
           <button
             type="submit"
+            disabled={isProcessing}
             className="w-full bg-foreground text-background uppercase text-sm tracking-wider py-4 rounded-xl hover:bg-accent hover:text-accent-foreground transition-smooth font-semibold"
           >
-            Passer la commande
+            {isProcessing ? "Traitement..." : "Passer la commande"}
           </button>
           <p className="text-[11px] text-foreground/40 text-center">
             En passant commande, vous acceptez nos conditions d'utilisation.
           </p>
         </aside>
       </form>
+
+      {isStatusModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-card border border-border rounded-3xl shadow-elegant overflow-hidden">
+            <div className="p-8 md:p-10 border-b border-border bg-secondary/30">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-accent mb-3">Suivi en temps réel</p>
+                  <h3 className="font-serif-display text-3xl md:text-4xl">Statut de votre paiement</h3>
+                </div>
+                <div
+                  className={cn(
+                    "shrink-0 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold border",
+                    paymentStatus === "pending" && "border-amber-500/30 bg-amber-500/10 text-amber-300",
+                    paymentStatus === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                    paymentStatus === "failed" && "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                  )}
+                >
+                  {paymentStatus === "pending" && (
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  {paymentStatus === "success" && <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />}
+                  {paymentStatus === "failed" && <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />}
+                  {paymentStatus === "pending" ? "En cours" : paymentStatus === "success" ? "Réussi" : "Échoué"}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 md:p-10 space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-border bg-secondary/30 p-4">
+                  <p className="text-xs uppercase tracking-wider text-foreground/50 mb-1">Référence</p>
+                  <p className="text-sm md:text-base font-medium break-all">{orderNumber}</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-secondary/30 p-4">
+                  <p className="text-xs uppercase tracking-wider text-foreground/50 mb-1">Actualisation</p>
+                  <p className="text-sm md:text-base font-medium">Toutes les 5 secondes</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-background/60 p-5">
+                <p className="text-xs uppercase tracking-wider text-foreground/50 mb-2">Message du provider</p>
+                <p className="text-base text-foreground/90">{statusMessage}</p>
+              </div>
+
+              {isPolling && (
+                <div className="flex items-center gap-3 text-sm text-foreground/70">
+                  <span className="h-5 w-5 rounded-full border-2 border-accent/40 border-t-accent animate-spin" />
+                  Vérification du callback en cours...
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 md:px-10 md:pb-8 flex flex-wrap justify-end gap-3 border-t border-border">
+              {paymentStatus === "failed" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentStatus("pending");
+                    setStatusMessage("Nouvelle vérification en cours...");
+                    void pollTransactionStatus(orderNumber);
+                    startPolling(orderNumber);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-smooth"
+                >
+                  Réessayer la vérification
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  stopPolling();
+                  setIsStatusModalOpen(false);
+                }}
+                className="px-5 py-2.5 rounded-xl border border-border text-sm font-medium hover:border-foreground/40 transition-smooth"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

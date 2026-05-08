@@ -47,7 +47,8 @@ const Login = () => {
       toast.success("Connexion Google réussie !");
       navigate(from, { replace: true });
     } catch (err: any) {
-      toast.error("Connexion Google annulée ou échouée.");
+      const msg = firebaseErrorMessage(err?.code);
+      toast.error(msg);
     }
   };
 
@@ -204,6 +205,14 @@ function firebaseErrorMessage(code: string): string {
       return "Trop de tentatives. Réessayez plus tard.";
     case "auth/popup-closed-by-user":
       return "Connexion annulée.";
+    case "auth/popup-blocked":
+      return "La popup Google est bloquée par le navigateur.";
+    case "auth/operation-not-allowed":
+      return "Google Sign-In n'est pas activé dans Firebase Authentication.";
+    case "auth/unauthorized-domain":
+      return "Ce domaine n'est pas autorisé dans Firebase Authentication.";
+    case "auth/invalid-action-code":
+      return "Lien de connexion invalide. Vérifiez la configuration Firebase.";
     default:
       return "Une erreur est survenue. Veuillez réessayer.";
   }

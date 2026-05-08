@@ -59,7 +59,7 @@ export const FilterSidebar = ({ categories, subCategories }: FilterSidebarProps)
 
       {subCategories.length > 0 && (
         <Section title="Sous-catégorie">
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
             {subCategories.map((s) => (
               <label
                 key={s}

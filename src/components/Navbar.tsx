@@ -4,14 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/store/cart";
 import { useWishlist } from "@/store/wishlist";
 import { useAuth } from "@/store/auth";
+import { useUnreadChatCount } from "@/store/chat";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import logo from "@/assets/logo.png";
+import { APP_NAME } from "@/config/app";
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const cartCount = useCart((s) => s.count());
   const wishCount = useWishlist((s) => s.ids.length);
   const { user, logout } = useAuth();
+  const unreadChatCount = useUnreadChatCount(user?.uid);
 
   const [scrolled, setScrolled] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -54,6 +58,8 @@ export const Navbar = () => {
   const NAV = [
     { to: "/", label: "Accueil", end: true },
     { to: "/shop", label: "Boutique", end: false },
+    { to: "/chat", label: "Chat", end: false },
+    { to: "/menu", label: "Menu", end: false },
   ];
 
   return (
@@ -76,8 +82,11 @@ export const Navbar = () => {
         </button>
 
         {/* Logo */}
-        <Link to="/" className="font-serif-display text-2xl tracking-wide">
-          Yutto<span className="text-accent">Store</span>
+        <Link to="/" className="flex items-center gap-2">
+          <img src={logo} alt={APP_NAME} className="h-8 w-8 object-contain" />
+          <span className="font-serif-display text-2xl tracking-wide">
+            Yutto<span className="text-accent">Store</span>
+          </span>
         </Link>
 
         {/* Desktop nav */}
@@ -94,7 +103,14 @@ export const Navbar = () => {
                 )
               }
             >
-              {n.label}
+              <span className="inline-flex items-center gap-2">
+                {n.label}
+                {n.to === "/chat" && unreadChatCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 px-1 inline-flex items-center justify-center leading-none">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                  </span>
+                )}
+              </span>
             </RouterNavLink>
           ))}
         </nav>
@@ -214,8 +230,11 @@ export const Navbar = () => {
       {mobile && (
         <div className="fixed inset-0 z-[60] bg-background md:hidden flex flex-col">
           <div className="flex h-20 items-center justify-between container">
-            <span className="font-serif-display text-2xl">
-              Yutto<span className="text-accent">Store</span>
+            <span className="flex items-center gap-2">
+              <img src={logo} alt={APP_NAME} className="h-8 w-8 object-contain" />
+              <span className="font-serif-display text-2xl">
+                Yutto<span className="text-accent">Store</span>
+              </span>
             </span>
             <button onClick={() => setMobile(false)} aria-label="Fermer le menu">
               <X className="h-6 w-6" />

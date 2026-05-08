@@ -10,6 +10,7 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  type AuthError,
   type User,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -62,7 +63,22 @@ export const useAuth = create<AuthState>()(
         set({ loading: true });
         try {
           const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: "select_account" });
           await signInWithPopup(auth, provider);
+        } catch (error) {
+          const authError = error as AuthError;
+          // Fallback utile sur Safari/iOS ou quand la popup est bloquée.
+          if (
+            authError.code === "auth/popup-blocked" ||
+            authError.code === "auth/cancelled-popup-request" ||
+            authError.code === "auth/operation-not-supported-in-this-environment"
+          ) {
+            const provider = new GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: "select_account" });
+            await signInWithRedirect(auth, provider);
+            return;
+          }
+          throw error;
         } finally {
           set({ loading: false });
         }
@@ -96,6 +112,11 @@ export const useAuth = create<AuthState>()(
  */
 export function initAuthListener() {
   const { setUser, setInitialized } = useAuth.getState();
+
+  void getRedirectResult(auth).catch(() => {
+    // Les erreurs seront gérées à l'action login; ne pas bloquer l'init.
+  });
+
   return onAuthStateChanged(auth, (user) => {
     setUser(user);
     setInitialized(true);

@@ -1,6 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, MapPin, ShoppingBag } from "lucide-react";
+import { Search, Bell, MapPin } from "lucide-react";
 import { useState } from "react";
+import logo from "@/assets/logo.png";
+import { APP_NAME } from "@/config/app";
 
 export const MobileHeader = () => {
   const navigate = useNavigate();
@@ -19,9 +21,7 @@ export const MobileHeader = () => {
       <div className="flex items-center justify-between px-4 pt-3 pb-2 gap-2">
         {/* Logo style app mobile : icône sac + texte */}
         <Link to="/" className="flex items-center gap-1.5 shrink-0">
-          <div className="h-7 w-7 rounded-lg bg-accent grid place-items-center">
-            <ShoppingBag className="h-4 w-4 text-accent-foreground" />
-          </div>
+          <img src={logo} alt={APP_NAME} className="h-7 w-7 object-contain" />
           <span className="font-bold text-base tracking-tight">
             Yutto<span className="text-accent">Store</span>
           </span>

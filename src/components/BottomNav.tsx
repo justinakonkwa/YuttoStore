@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home, ShoppingCart, MessageCircle, Menu } from "lucide-react";
 import { useCart } from "@/store/cart";
+import { useAuth } from "@/store/auth";
+import { useUnreadChatCount } from "@/store/chat";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -13,6 +15,8 @@ const TABS = [
 export const BottomNav = () => {
   const { pathname } = useLocation();
   const cartCount = useCart((s) => s.count());
+  const user = useAuth((s) => s.user);
+  const unreadChatCount = useUnreadChatCount(user?.uid);
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom">
@@ -38,6 +42,11 @@ export const BottomNav = () => {
                 {to === "/cart" && cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[9px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center leading-none">
                     {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+                {to === "/chat" && unreadChatCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center leading-none">
+                    {unreadChatCount > 99 ? "99+" : unreadChatCount}
                   </span>
                 )}
               </div>

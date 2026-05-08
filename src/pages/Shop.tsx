@@ -99,7 +99,7 @@ const Shop = () => {
         </div>
       </div>
 
-      <div className="container py-6">
+      <div className="w-full px-4 md:px-6 lg:px-8 xl:px-10 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

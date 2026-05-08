@@ -95,15 +95,11 @@ export const PromoBanner = () => {
     </div>
   );
 
-  return (
-    <section className="container py-6">
-      {slide.link ? (
-        <Link to={slide.link} className="block">
-          {Inner}
-        </Link>
-      ) : (
-        Inner
-      )}
-    </section>
+  return slide.link ? (
+    <Link to={slide.link} className="block">
+      {Inner}
+    </Link>
+  ) : (
+    Inner
   );
 };

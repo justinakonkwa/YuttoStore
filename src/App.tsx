@@ -15,6 +15,8 @@ const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Login = lazy(() => import("./pages/Login"));
 const Menu = lazy(() => import("./pages/Menu"));
+const Chat = lazy(() => import("./pages/Chat"));
+const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
 
 const queryClient = new QueryClient();
 
@@ -50,7 +52,22 @@ const App = () => (
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/menu" element={<Menu />} />
-              <Route path="/chat" element={<div className="container py-20 text-center text-foreground/50">Messages — bientôt disponible</div>} />
+              <Route
+                path="/chat"
+                element={
+                  <ProtectedRoute>
+                    <Chat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/seller"
+                element={
+                  <ProtectedRoute>
+                    <SellerDashboard />
+                  </ProtectedRoute>
+                }
+              />
               {/* Checkout protégé : connexion requise */}
               <Route
                 path="/checkout"

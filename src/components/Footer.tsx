@@ -1,28 +1,35 @@
 import { Link } from "react-router-dom";
 import { Instagram, Twitter, Mail, Facebook } from "lucide-react";
+import logo from "@/assets/logo.png";
+import { ALL_APP_URL, APP_NAME, APP_PHONE, DEV_EMAIL, PRIVACY_URL, TERMS_URL } from "@/config/app";
 
 export const Footer = () => (
   <footer className="border-t border-border bg-secondary/10 mt-20">
     <div className="container py-16 grid grid-cols-2 md:grid-cols-5 gap-10">
       {/* Marque */}
       <div className="col-span-2">
-        <Link to="/" className="font-serif-display text-3xl">
-          Yutto<span className="text-accent">Store</span>
+        <Link to="/" className="inline-flex items-center gap-2 font-serif-display text-3xl">
+          <img src={logo} alt={APP_NAME} className="h-9 w-9 object-contain" />
+          <span>
+            Yutto<span className="text-accent">Store</span>
+          </span>
         </Link>
         <p className="text-foreground/55 text-sm mt-4 max-w-xs leading-relaxed">
           Votre marketplace de confiance. Des milliers de produits, livraison rapide et paiements sécurisés.
         </p>
+        <p className="text-foreground/45 text-xs mt-3">{APP_PHONE}</p>
+        <p className="text-foreground/45 text-xs">{DEV_EMAIL}</p>
         <div className="flex gap-4 mt-6 text-foreground/50">
-          <a href="#" aria-label="Instagram" className="hover:text-accent transition-smooth">
+          <a href={ALL_APP_URL} target="_blank" rel="noreferrer" aria-label="Instagram" className="hover:text-accent transition-smooth">
             <Instagram className="h-4 w-4" />
           </a>
-          <a href="#" aria-label="Facebook" className="hover:text-accent transition-smooth">
+          <a href={ALL_APP_URL} target="_blank" rel="noreferrer" aria-label="Facebook" className="hover:text-accent transition-smooth">
             <Facebook className="h-4 w-4" />
           </a>
-          <a href="#" aria-label="Twitter" className="hover:text-accent transition-smooth">
+          <a href={ALL_APP_URL} target="_blank" rel="noreferrer" aria-label="Twitter" className="hover:text-accent transition-smooth">
             <Twitter className="h-4 w-4" />
           </a>
-          <a href="#" aria-label="Email" className="hover:text-accent transition-smooth">
+          <a href={`mailto:${DEV_EMAIL}`} aria-label="Email" className="hover:text-accent transition-smooth">
             <Mail className="h-4 w-4" />
           </a>
         </div>
@@ -52,8 +59,8 @@ export const Footer = () => (
           links: [
             ["Qui sommes-nous", "/"],
             ["Carrières", "/"],
-            ["Politique de confidentialité", "/"],
-            ["Conditions d'utilisation", "/"],
+            ["Politique de confidentialité", PRIVACY_URL],
+            ["Conditions d'utilisation", TERMS_URL],
           ],
         },
       ].map((c) => (
@@ -62,12 +69,14 @@ export const Footer = () => (
           <ul className="space-y-2.5">
             {c.links.map(([label, to]) => (
               <li key={label}>
-                <Link
-                  to={to}
+                <a
+                  href={to}
+                  target={to.startsWith("http") ? "_blank" : undefined}
+                  rel={to.startsWith("http") ? "noreferrer" : undefined}
                   className="text-sm text-foreground/50 hover:text-accent transition-smooth"
                 >
                   {label}
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

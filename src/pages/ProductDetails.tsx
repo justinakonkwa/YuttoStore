@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Heart,
   Minus,
+  MessageCircle,
   Plus,
   Truck,
   ShieldCheck,
@@ -286,6 +287,27 @@ const ProductDetails = () => {
               />
             </button>
           </div>
+
+          <button
+            onClick={() =>
+              navigate("/chat", {
+                state: {
+                  taggedProduct: {
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    imageUrl: product.images[0]?.url ?? "",
+                    reference: product.reference ?? "",
+                    shopId: product.shopId ?? "",
+                  },
+                },
+              })
+            }
+            className="w-full mt-3 border border-accent/40 bg-accent/10 text-accent rounded-xl py-3 text-sm font-semibold uppercase tracking-wider hover:bg-accent hover:text-accent-foreground transition-smooth inline-flex items-center justify-center gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Discuter de ce produit
+          </button>
 
           {/* Badges de confiance */}
           <div className="grid grid-cols-3 gap-3 pt-5 border-t border-border">
